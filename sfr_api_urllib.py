@@ -1,24 +1,28 @@
-# requests version
+# urllib version
 
 import re
-import requests, pickle
+import urllib, http.cookiejar
 
 class sfr_client:
 
-    def __init__(self,login=None,password=None,cookies_file=None):
-
-        # initie une session requests pour la navigation
-        self.session = requests.session()
+    def __init__(self,login=None,password=None,cookie_file=None):
+        
+        self.browser_session = urllib
+        self.cookie = http.cookiejar.MozillaCookieJar()
+        cookie_handler = self.browser_session.request.build_opener(urllib.request.HTTPCookieProcessor(self.cookie))
+        cookie_handler.addheaders = [('User-agent', 'Mozilla/5.0')]
+        self.browser_session.request.install_opener(cookie_handler)
         cookie_loaded = False
 
         # Charge le cookie ici
-        if cookies_file != None:
+        if cookie_file != None:
+            self.cookie.filename = cookie_file
             try:
-                with open(cookies_file, 'rb') as f:
-                    self.session.cookies.update(pickle.load(f))
-                cookie_loaded = True
-            except FileNotFoundError:
+                self.cookie.load(self.cookie.filename)
+            except:
                 pass
+        else:
+            self.cookie.filename = "default.cookie"
 
         if cookie_loaded is False:
             if login == None or password == None:    
@@ -31,9 +35,10 @@ class sfr_client:
                     raise Exception("Impossible to login")       
 
     # Sert à garder les cookies dans un fichier pour éviter les reconnexion inutiles
-    def save_session(self,filename):
-        with open(filename, 'wb') as f:
-            pickle.dump(self.session.cookies, f)
+    def cookie_save(self,filename=None):
+        if type(filename) == str:
+            self.cookie.filename = filename
+        self.cookie.save(ignore_discard=True, ignore_expires=True)
     
     # Ouvre des ports
     def open_nat(self,rulename,ip_adress,external_port,destination_port=None,nat_type="tcp",port_range="false"):
@@ -84,27 +89,42 @@ class sfr_client:
 
     def make_post(self,url,data):
         # Tout les post passent par ici, c'est plus controlable
+        if type(data) == dict:
+            data = self.browser_session.parse.urlencode(data).encode('UTF-8')
+        else:
+            data = None
 
-        print(url,data)
+        req = self.browser_session.request.Request(url, data)
 
-        request = self.session.post(url,data=data)
-        return request.status_code
+        try:
+            resp = self.browser_session.request.urlopen(req)
+        except urllib.error.HTTPError  as e:
+                return e
+
+        return resp.getcode()
 
     def make_get(self,url):
-        return self.session.get(url)
+        request = self.browser_session.request.Request(url)
+
+        try:
+            response = self.browser_session.request.urlopen(request)
+        except urllib.error.HTTPError  as e:
+                return e
+
+        return response
     
     def reboot_modem(self):
         self.make_post("http://192.168.1.1/reboot",data={'submit':""})
 
     def get_nat(self):
-        req = self.make_get("http://192.168.1.1/network/nat")
+        req = self.make_get("http://192.168.1.1/network/nat").read().decode()
         name = False
         protocole = False
         proto = ""
         nat_list = []
         
         # Va chercher les informations, ma méthode est chaotique mais elle marche
-        for i in req.text.splitlines():
+        for i in req.splitlines():
             if '<span class="col_number">' in i:
                 nat_id = i.split('<span class="col_number">')[1].split('</span>')[0]
 
