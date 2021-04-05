@@ -1,2 +1,2 @@
 # sfr_api
-Creer un api pour 192.168.1.1, pour commencer l'apprentissage des libraries tel requests ou urllib en python, et comprendre comment un navigateur fonctionne 
+C'est le premier API que je crée. Cela m'a permis d'en apprendre d'avantage sur le fonctionnement des navigateurs. Cela me permet également d'automatiser des taches.
